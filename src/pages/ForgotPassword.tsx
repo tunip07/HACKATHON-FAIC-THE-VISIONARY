@@ -1,16 +1,35 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../services/supabase';
+import { clearRecoveryVerified, setRecoveryEmail } from '../utils/authFlow';
+import { getReadableAuthError } from '../utils/authErrors';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement actual password reset logic here
-    console.log('Reset password for:', email);
-    // Navigate to OTP verification page
-    navigate('/verify-otp');
+    setError('');
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) {
+        setError(getReadableAuthError(error, 'Không thể gửi OTP lúc này. Vui lòng thử lại.'));
+        return;
+      }
+
+      setRecoveryEmail(email);
+      clearRecoveryVerified();
+      navigate('/verify-otp', { state: { email } });
+    } catch {
+      setError('Đã có lỗi xảy ra. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -22,10 +41,14 @@ export default function ForgotPassword() {
           </div>
           <h2 className="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">FPT Parking</h2>
         </Link>
-        <Link to="/login" className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-[#ec5b13] text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-[#ec5b13]/90 transition-colors">
+        <Link
+          to="/login"
+          className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-[#ec5b13] text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-[#ec5b13]/90 transition-colors"
+        >
           <span className="truncate">Đăng nhập</span>
         </Link>
       </header>
+
       <main className="flex-1 flex items-center justify-center p-4 md:p-8">
         <div className="w-full max-w-[480px] bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
           <div className="p-8 md:p-10 flex flex-col">
@@ -34,34 +57,52 @@ export default function ForgotPassword() {
                 <span className="material-symbols-outlined text-4xl">lock_reset</span>
               </div>
             </div>
+
             <h1 className="text-slate-900 dark:text-white tracking-tight text-3xl font-bold leading-tight text-center pb-2">
               Quên mật khẩu?
             </h1>
             <p className="text-slate-500 dark:text-slate-400 text-base font-normal leading-normal pb-8 text-center">
-              Nhập email của bạn để nhận mã khôi phục tài khoản
+              Nhập email của bạn để nhận mã OTP khôi phục tài khoản.
             </p>
+
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+              {error && (
+                <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm flex items-center gap-2">
+                  <span className="material-symbols-outlined text-base">error</span>
+                  {error}
+                </div>
+              )}
+
               <div className="flex flex-col w-full">
                 <label className="text-slate-700 dark:text-slate-300 text-sm font-semibold leading-normal pb-2 px-1">Email</label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">mail</span>
-                  <input 
+                  <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-slate-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-[#ec5b13]/50 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:border-[#ec5b13] h-14 placeholder:text-slate-400 pl-12 pr-4 text-base font-normal leading-normal transition-all" 
-                    placeholder="Nhập email của bạn" 
+                    className="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-slate-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-[#ec5b13]/50 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:border-[#ec5b13] h-14 placeholder:text-slate-400 pl-12 pr-4 text-base font-normal leading-normal transition-all"
+                    placeholder="Nhập email của bạn"
                   />
                 </div>
               </div>
-              <button 
+
+              <button
                 type="submit"
-                className="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl h-14 px-5 bg-[#ec5b13] text-white text-base font-bold leading-normal tracking-[0.015em] hover:bg-[#ec5b13]/90 transition-colors shadow-lg shadow-[#ec5b13]/20"
+                disabled={loading}
+                className="flex w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-xl h-14 px-5 bg-[#ec5b13] text-white text-base font-bold leading-normal tracking-[0.015em] hover:bg-[#ec5b13]/90 transition-colors shadow-lg shadow-[#ec5b13]/20 disabled:opacity-60"
               >
-                <span className="truncate">Gửi mã xác nhận</span>
+                {loading && (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                )}
+                <span className="truncate">{loading ? 'Đang gửi...' : 'Gửi OTP khôi phục mật khẩu'}</span>
               </button>
             </form>
+
             <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-center">
               <Link to="/login" className="flex items-center gap-2 text-[#ec5b13] font-semibold text-sm hover:underline">
                 <span className="material-symbols-outlined text-lg">arrow_back</span>
@@ -71,6 +112,7 @@ export default function ForgotPassword() {
           </div>
         </div>
       </main>
+
       <footer className="py-6 text-center text-slate-400 text-xs">
         The Visionary FAIC HACKATHON PROJECT © 2026
       </footer>

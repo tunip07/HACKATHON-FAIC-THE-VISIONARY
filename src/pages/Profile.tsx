@@ -1,87 +1,183 @@
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+
+const getAvatarUrl = (name?: string | null, avatar?: string) =>
+  avatar ||
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'U')}&background=ec5b13&color=fff&size=128`;
 
 export default function Profile() {
+  const { user, logout, updateProfile } = useAuth();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (user?.name) {
+      const parts = user.name.split(' ');
+      setLastName(parts.pop() || '');
+      setFirstName(parts.join(' '));
+    } else {
+      setFirstName('');
+      setLastName('');
+    }
+
+    setPhone(user?.phone || '');
+  }, [user]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+
+    try {
+      await updateProfile({
+        fullName: `${firstName} ${lastName}`.trim(),
+        phone,
+      });
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 3000);
+    } catch (err: any) {
+      setError(err.message || 'Không thể lưu thay đổi. Vui lòng thử lại.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const avatarUrl = getAvatarUrl(user?.name, user?.avatar);
+  const isGoogleAccount = user?.provider === 'google';
+
   return (
     <div className="p-8 md:p-12">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-3xl font-black tracking-tight mb-2">Thông tin cá nhân</h2>
-            <p className="text-slate-500 dark:text-slate-400">Cập nhật chi tiết hồ sơ và cách mọi người có thể tìm thấy bạn.</p>
+            <h2 className="mb-2 text-3xl font-black tracking-tight">Thông tin cá nhân</h2>
+            <p className="text-slate-500 dark:text-slate-400">
+              Cập nhật chi tiết hồ sơ và cách mọi người có thể tìm thấy bạn.
+            </p>
           </div>
+
           <div className="flex gap-3">
-            <button className="px-6 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Hủy</button>
-            <button className="px-6 py-2.5 rounded-xl bg-primary text-white font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-primary/20">Lưu thay đổi</button>
+            <button
+              onClick={logout}
+              className="rounded-xl border border-red-200 px-6 py-2.5 font-semibold text-red-500 transition-colors hover:bg-red-50"
+            >
+              Đăng xuất
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 rounded-xl bg-primary px-6 py-2.5 font-semibold text-white shadow-lg shadow-primary/20 transition-opacity hover:opacity-90 disabled:opacity-60"
+            >
+              {saving && (
+                <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              )}
+              {saved ? 'Đã lưu!' : saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+            </button>
           </div>
         </div>
-        {/* Profile Section */}
-        <div className="bg-white dark:bg-background-dark border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden mb-8">
+
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        <div className="mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-background-dark">
           <div className="p-8">
-            <div className="flex flex-col md:flex-row md:items-center gap-8 mb-10">
+            <div className="mb-10 flex flex-col gap-8 md:flex-row md:items-center">
               <div className="relative">
-                <img className="w-32 h-32 rounded-full object-cover border-4 border-slate-50 dark:border-slate-800" alt="Ảnh chân dung người dùng Nguyễn Văn A kích thước lớn" src="https://media.tenor.com/QbmbfSEMO9cAAAAe/rakai-reading.png" />
-                <button className="absolute bottom-0 right-0 p-2 bg-primary text-white rounded-full shadow-lg border-2 border-white dark:border-background-dark">
+                <img
+                  className="h-32 w-32 rounded-full border-4 border-slate-50 object-cover dark:border-slate-800"
+                  alt="Ảnh đại diện"
+                  src={avatarUrl}
+                />
+                <div className="absolute bottom-0 right-0 rounded-full border-2 border-white bg-primary p-2 text-white shadow-lg dark:border-slate-900">
                   <span className="material-symbols-outlined text-sm">edit</span>
-                </button>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-bold mb-1">Ảnh đại diện</h3>
-                <p className="text-sm text-slate-500 mb-4">Khuyên dùng ảnh có kích thước ít nhất 400x400px. Định dạng JPG, PNG hoặc GIF.</p>
-                <div className="flex gap-3">
-                  <button className="text-sm font-bold text-primary hover:underline">Thay đổi ảnh</button>
-                  <span className="text-slate-300">|</span>
-                  <button className="text-sm font-bold text-red-500 hover:underline">Xóa ảnh hiện tại</button>
                 </div>
               </div>
+
+              <div className="flex-1">
+                <h3 className="mb-1 text-xl font-bold">{user?.name || 'Người dùng'}</h3>
+                <p className="mb-1 text-sm text-slate-500">{user?.email}</p>
+                <p className="text-sm text-slate-400">
+                  {isGoogleAccount ? 'Đã đăng nhập qua Google' : 'Tài khoản email'}
+                </p>
+              </div>
             </div>
-            <hr className="border-slate-100 dark:border-slate-800 mb-10" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+            <hr className="mb-10 border-slate-100 dark:border-slate-800" />
+
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Họ</label>
-                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="Nhập họ" type="text" defaultValue="Nguyễn" />
+                <input
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-800/50"
+                  placeholder="Nhập họ"
+                  type="text"
+                  value={firstName}
+                  onChange={(event) => setFirstName(event.target.value)}
+                />
               </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Tên</label>
-                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="Adam" type="text" defaultValue="Văn A" />
+                <input
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-800/50"
+                  placeholder="Nhập tên"
+                  type="text"
+                  value={lastName}
+                  onChange={(event) => setLastName(event.target.value)}
+                />
               </div>
+
               <div className="space-y-2 md:col-span-2">
                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Địa chỉ Email</label>
                 <div className="relative">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">mail</span>
-                  <input className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="email@example.com" type="email" defaultValue="nguyenvana@example.com" />
+                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                    mail
+                  </span>
+                  <input
+                    className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-100 py-3 pl-12 pr-4 text-slate-500 outline-none dark:border-slate-700 dark:bg-slate-800"
+                    type="email"
+                    value={user?.email || ''}
+                    readOnly
+                  />
                 </div>
-                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
                   <span className="material-symbols-outlined text-[14px]">info</span>
-                  Email này sẽ được dùng để đăng nhập và khôi phục tài khoản.
+                  Email không thể thay đổi sau khi đăng ký.
                 </p>
               </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Số điện thoại</label>
                 <div className="relative">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">call</span>
-                  <input className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="0123 456 789" type="tel" defaultValue="090 123 4567" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Vị trí</label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">location_on</span>
-                  <select className="w-full pl-12 pr-10 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none">
-                    <option>Hà Nội, Việt Nam</option>
-                    <option>TP. Hồ Chí Minh, Việt Nam</option>
-                    <option>Đà Nẵng, Việt Nam</option>
-                  </select>
-                  <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">expand_more</span>
+                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                    call
+                  </span>
+                  <input
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-3 pl-12 pr-4 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-800/50"
+                    placeholder="0123 456 789"
+                    type="tel"
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                  />
                 </div>
               </div>
             </div>
           </div>
         </div>
-        {/* Secondary Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="p-6 bg-white dark:bg-background-dark border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between group cursor-pointer hover:border-primary/50 transition-colors">
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="group flex cursor-pointer items-center justify-between rounded-2xl border border-slate-200 bg-white p-6 transition-colors hover:border-primary/50 dark:border-slate-800 dark:bg-background-dark">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <span className="material-symbols-outlined">shield_person</span>
               </div>
               <div>
@@ -89,11 +185,14 @@ export default function Profile() {
                 <p className="text-xs text-slate-500">Bảo vệ tài khoản an toàn hơn</p>
               </div>
             </div>
-            <span className="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">chevron_right</span>
+            <span className="material-symbols-outlined text-slate-300 transition-colors group-hover:text-primary">
+              chevron_right
+            </span>
           </div>
-          <div className="p-6 bg-white dark:bg-background-dark border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between group cursor-pointer hover:border-primary/50 transition-colors">
+
+          <div className="group flex cursor-pointer items-center justify-between rounded-2xl border border-slate-200 bg-white p-6 transition-colors hover:border-primary/50 dark:border-slate-800 dark:bg-background-dark">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <span className="material-symbols-outlined">history</span>
               </div>
               <div>
@@ -101,7 +200,9 @@ export default function Profile() {
                 <p className="text-xs text-slate-500">Xem các thiết bị đã truy cập</p>
               </div>
             </div>
-            <span className="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">chevron_right</span>
+            <span className="material-symbols-outlined text-slate-300 transition-colors group-hover:text-primary">
+              chevron_right
+            </span>
           </div>
         </div>
       </div>

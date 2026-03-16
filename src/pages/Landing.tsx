@@ -305,7 +305,7 @@ export default function Landing() {
               </span>
             </div>
           </div>
-        </div>
+        </div>``
       </footer>
     </div>
   );
